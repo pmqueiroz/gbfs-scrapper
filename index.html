@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bike Itaú - Station Monitor</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<style>
+  :root {
+    --bg: #f4f6f8;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --text: #1e293b;
+    --muted: #64748b;
+    --accent: #ff6d00;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  header h1 {
+    font-size: 18px;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  header h1 .dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: inline-block;
+  }
+  header a { color: var(--muted); text-decoration: none; font-size: 13px; }
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+  .controls {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .control-group { display: flex; flex-direction: column; gap: 8px; }
+  .control-group > label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--muted);
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chips label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    background: var(--bg);
+    user-select: none;
+  }
+  .chips label input { accent-color: var(--accent); }
+  .chips label.checked {
+    background: #fff3e6;
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+  select {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    background: var(--card);
+  }
+  button {
+    border: 1px solid var(--border);
+    background: var(--card);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  .toolbar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  #status { font-size: 13px; color: var(--muted); }
+  .chart-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .chart-wrap { position: relative; height: 420px; }
+  #empty {
+    display: none;
+    text-align: center;
+    color: var(--muted);
+    padding: 60px 20px;
+  }
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    padding: 24px;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="dot"></span>Bike Ita&uacute; Station Monitor</h1>
+  <a href="https://github.com/pmqueiroz/gbfs-scrapper" target="_blank" rel="noopener">View source on GitHub</a>
+</header>
+
+<main>
+  <div class="controls">
+    <div class="control-group">
+      <label>Stations</label>
+      <div class="chips" id="station-chips"></div>
+    </div>
+    <div class="control-group">
+      <label>Metrics</label>
+      <div class="chips" id="metric-chips">
+        <label><input type="checkbox" value="normal_bikes" checked> Normal bikes</label>
+        <label><input type="checkbox" value="electric_bikes" checked> Electric bikes</label>
+        <label><input type="checkbox" value="docks_available" checked> Docks available</label>
+      </div>
+    </div>
+    <div class="toolbar">
+      <div class="control-group" style="flex-direction:row; align-items:center; gap:8px;">
+        <label style="text-transform:none; letter-spacing:0;">Period:</label>
+        <select id="range">
+          <option value="1">Last 24 hours</option>
+          <option value="7" selected>Last 7 days</option>
+          <option value="30">Last 30 days</option>
+          <option value="all">All time</option>
+        </select>
+      </div>
+      <button id="refresh">Refresh</button>
+      <span id="status"></span>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <div id="empty">No data yet. The monitoring workflow runs every 30 minutes and will populate the history here.</div>
+    <div class="chart-wrap">
+      <canvas id="chart"></canvas>
+    </div>
+  </div>
+</main>
+
+<footer>Data from the Tembici GBFS feed &middot; Updated hourly by GitHub Actions</footer>
+
+<script>
+const PALETTE = [
+  '#ff6d00', '#1565c0', '#2e7d32', '#8e24aa', '#00838f',
+  '#c62828', '#f9a825', '#4527a0', '#ef6c00', '#00695c',
+  '#5d4037', '#546e7a'
+];
+const METRICS = {
+  normal_bikes:   { label: 'Normal bikes',   borderDash: [] },
+  electric_bikes: { label: 'Electric bikes', borderDash: [6, 4] },
+  docks_available:{ label: 'Docks available', borderDash: [2, 4] }
+};
+
+let allRecords = [];
+let chart = null;
+
+const $ = (id) => document.getElementById(id);
+
+function parseTimestamp(ts) {
+  return new Date(ts.replace(' ', 'T'));
+}
+
+async function loadData() {
+  const res = await fetch('station_history.json', { cache: 'no-store' });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  allRecords = await res.json();
+  if (!Array.isArray(allRecords)) allRecords = [];
+}
+
+function renderStations() {
+  const ids = [...new Set(allRecords.map(r => r.station_id))];
+  const names = {};
+  allRecords.forEach(r => { names[r.station_id] = r.station_name; });
+  ids.sort((a, b) => Number(a) - Number(b));
+
+  const container = $('station-chips');
+  container.innerHTML = '';
+  ids.forEach((sid, i) => {
+    const label = document.createElement('label');
+    label.id = 'chip-' + sid;
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = sid;
+    cb.checked = ids.length <= 6;
+    cb.addEventListener('change', () => {
+      label.classList.toggle('checked', cb.checked);
+      updateChart();
+    });
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(' ' + sid + ' - ' + names[sid]));
+    container.appendChild(label);
+    if (cb.checked) label.classList.add('checked');
+  });
+  if (ids.length === 0) {
+    container.innerHTML = '<span style="color:var(--muted);font-size:13px;">No stations recorded yet.</span>';
+  }
+}
+
+function filterByRange(records) {
+  const range = $('range').value;
+  if (range === 'all') return records;
+  const cutoff = Date.now() - Number(range) * 24 * 3600 * 1000;
+  return records.filter(r => parseTimestamp(r.timestamp).getTime() >= cutoff);
+}
+
+function updateChart() {
+  const selectedStations = [...document.querySelectorAll('#station-chips input:checked')].map(i => i.value);
+  const selectedMetrics = [...document.querySelectorAll('#metric-chips input:checked')].map(i => i.value);
+  $('status').textContent = `${selectedStations.length} station(s) \u00b7 ${allRecords.length} records`;
+
+  if (chart) { chart.destroy(); chart = null; }
+
+  if (selectedStations.length === 0 || selectedMetrics.length === 0) {
+    $('empty').style.display = 'block';
+    $('chart').style.display = 'none';
+    return;
+  }
+  $('empty').style.display = 'none';
+  $('chart').style.display = 'block';
+
+  const records = filterByRange(allRecords)
+    .filter(r => selectedStations.includes(r.station_id))
+    .sort((a, b) => parseTimestamp(a.timestamp) - parseTimestamp(b.timestamp));
+
+  const datasets = [];
+
+  selectedStations.forEach((sid, idx) => {
+    const color = PALETTE[idx % PALETTE.length];
+    const name = allRecords.find(r => r.station_id === sid)?.station_name || sid;
+    selectedMetrics.forEach(metric => {
+      const points = records
+        .filter(r => r.station_id === sid)
+        .map(r => ({ x: parseTimestamp(r.timestamp), y: r[metric] ?? 0 }));
+      if (points.length === 0) return;
+      datasets.push({
+        label: `${sid} - ${name} (${METRICS[metric].label})`,
+        data: points,
+        borderColor: color,
+        backgroundColor: color,
+        borderDash: METRICS[metric].borderDash,
+        borderWidth: 2,
+        pointRadius: 2,
+        pointHoverRadius: 5,
+        tension: 0.25,
+        fill: false
+      });
+    });
+  });
+
+  datasets.forEach(ds => ds.data.sort((a, b) => a.x - b.x));
+
+  chart = new Chart($('chart'), {
+    type: 'line',
+    data: { datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'nearest', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 20, font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            title: (items) => {
+              const d = items[0].parsed.x;
+              return d ? d.toLocaleString('pt-BR') : '';
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'time',
+          time: { unit: 'hour', displayFormats: { hour: 'dd/MM HH:mm' } },
+          ticks: { maxTicksLimit: 12, font: { size: 11 } }
+        },
+        y: { beginAtZero: true, ticks: { precision: 0, font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+document.querySelectorAll('#metric-chips input').forEach(cb => {
+  cb.addEventListener('change', () => {
+    cb.closest('label').classList.toggle('checked', cb.checked);
+    updateChart();
+  });
+});
+$('range').addEventListener('change', updateChart);
+$('refresh').addEventListener('click', init);
+
+async function init() {
+  try {
+    await loadData();
+    renderStations();
+    updateChart();
+  } catch (err) {
+    $('empty').style.display = 'block';
+    $('empty').textContent = 'Could not load station_history.json: ' + err.message;
+    $('chart').style.display = 'none';
+    $('status').textContent = '';
+  }
+}
+
+init();
+</script>
+</body>
+</html>

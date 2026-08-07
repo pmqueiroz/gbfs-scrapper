@@ -31,9 +31,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add station_history.csv
+          git add station_history.json
           if git diff --cached --quiet; then
-            echo "No changes in the CSV. Nothing to commit."
+            echo "No changes in the JSON. Nothing to commit."
           else
             git commit -m "chore: update station history $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
             git push

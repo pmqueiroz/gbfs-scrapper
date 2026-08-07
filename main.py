@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import csv
+import json
 import os
 import sys
 from datetime import datetime
@@ -17,16 +17,8 @@ STATION_IDS = ["61", "146", "36"]
 #   Curitiba:       https://curitiba.publicbikesystem.net/customer/gbfs/v3.0/gbfs.json
 #   Santiago (CL):  https://santiago.publicbikesystem.net/customer/gbfs/v3.0/gbfs.json
 CITY_GBFS_URL = "https://salvador.publicbikesystem.net/customer/gbfs/v3.0/gbfs.json"
-CSV_FILENAME = "station_history.csv"
+HISTORY_FILENAME = "station_history.json"
 
-CSV_HEADER = [
-    "timestamp",
-    "station_id",
-    "station_name",
-    "normal_bikes",
-    "electric_bikes",
-    "docks_available",
-]
 TIMEZONE = "America/Sao_Paulo"
 REQUEST_TIMEOUT = 30
 RETRIES = 3
@@ -105,23 +97,28 @@ def describe_status(station):
     return "paused"
 
 
-def prepare_csv(filename, header):
+def load_history(filename):
     if not os.path.isfile(filename):
-        with open(filename, "w", newline="", encoding="utf-8") as csvfile:
-            csv.writer(csvfile).writerow(header)
-        return "file created with the new header"
+        return []
+    with open(filename, "r", encoding="utf-8") as jsonfile:
+        data = json.load(jsonfile)
+    return data if isinstance(data, list) else []
 
-    with open(filename, newline="", encoding="utf-8") as csvfile:
-        first_line = csvfile.readline().rstrip("\r\n")
 
-    if first_line != ",".join(header):
-        backup = f"{filename}.backup"
-        os.replace(filename, backup)
-        with open(filename, "w", newline="", encoding="utf-8") as csvfile:
-            csv.writer(csvfile).writerow(header)
-        return f"stale header; old data moved to {backup}"
+def deduplicate_records(records):
+    seen = set()
+    unique = []
+    for record in records:
+        key = (record.get("timestamp"), record.get("station_id"))
+        if key not in seen:
+            seen.add(key)
+            unique.append(record)
+    return unique
 
-    return "header ok"
+
+def save_history(filename, records):
+    with open(filename, "w", encoding="utf-8") as jsonfile:
+        json.dump(records, jsonfile, ensure_ascii=False, separators=(",", ":"))
 
 def main():
     print(f"Monitoring {len(STATION_IDS)} station(s): {', '.join(STATION_IDS)}")
@@ -159,7 +156,6 @@ def main():
             print(f"  (warning) could not fetch station names: {exc}")
 
     timestamp = datetime.now(ZoneInfo(TIMEZONE)).strftime("%Y-%m-%d %H:%M:%S")
-    print(prepare_csv(CSV_FILENAME, CSV_HEADER))
 
     found = 0
     rows = []
@@ -187,7 +183,16 @@ def main():
         print(f"  Electric bikes     : {electric}")
         print(f"  Docks available    : {docks}")
 
-        rows.append([timestamp, station_id, station_name, normal, electric, docks])
+        rows.append(
+            {
+                "timestamp": timestamp,
+                "station_id": station_id,
+                "station_name": station_name,
+                "normal_bikes": normal,
+                "electric_bikes": electric,
+                "docks_available": docks,
+            }
+        )
 
     print("------------------------------------------")
     if found == 0:
@@ -197,9 +202,11 @@ def main():
         )
 
     if rows:
-        with open(CSV_FILENAME, "a", newline="", encoding="utf-8") as csvfile:
-            csv.writer(csvfile).writerows(rows)
-    print(f"{len(rows)} record(s) saved to {CSV_FILENAME}")
+        history = load_history(HISTORY_FILENAME)
+        history.extend(rows)
+        history = deduplicate_records(history)
+        save_history(HISTORY_FILENAME, history)
+    print(f"{len(rows)} record(s) saved to {HISTORY_FILENAME}")
 
 
 if __name__ == "__main__":
