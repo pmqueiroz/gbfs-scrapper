@@ -1,0 +1,7 @@
+timestamp,station_id,station_name,normal_bikes,electric_bikes,docks_available
+2026-08-07 13:25:45,61,17 - Circo Percolino,3,3,5
+2026-08-07 13:25:45,146,69 - Carimbamba,1,1,11
+2026-08-07 13:25:45,36,36 - Rio Xangô,0,1,14
+2026-08-07 13:25:51,61,17 - Circo Percolino,3,3,5
+2026-08-07 13:25:51,146,69 - Carimbamba,1,1,11
+2026-08-07 13:25:51,36,36 - Rio Xangô,0,1,14

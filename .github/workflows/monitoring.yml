@@ -1,0 +1,40 @@
+name: Station Monitoring
+
+on:
+  schedule:
+    - cron: "0,30 9-22 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install requests
+
+      - name: Run monitoring script
+        run: python main.py
+
+      - name: Auto-commit history
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add station_history.csv
+          if git diff --cached --quiet; then
+            echo "No changes in the CSV. Nothing to commit."
+          else
+            git commit -m "chore: update station history $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+            git push
+          fi
