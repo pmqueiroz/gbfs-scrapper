@@ -221,7 +221,7 @@ function renderStations() {
       updateChart();
     });
     label.appendChild(cb);
-    label.appendChild(document.createTextNode(' ' + sid + ' - ' + names[sid]));
+    label.appendChild(document.createTextNode(' ' + names[sid]));
     container.appendChild(label);
     if (cb.checked) label.classList.add('checked');
   });
@@ -267,7 +267,7 @@ function updateChart() {
         .map(r => ({ x: parseTimestamp(r.timestamp), y: r[metric] ?? 0 }));
       if (points.length === 0) return;
       datasets.push({
-        label: `${sid} - ${name} (${METRICS[metric].label})`,
+        label: `${name} (${METRICS[metric].label})`,
         data: points,
         borderColor: color,
         backgroundColor: color,
