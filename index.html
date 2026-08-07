@@ -6,6 +6,8 @@
 <title>Bike Itaú - Station Monitor</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-matrix@2.0.1/dist/chartjs-chart-matrix.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <style>
   :root {
     --bg: #f4f6f8;
@@ -62,6 +64,7 @@
     flex-direction: column;
     gap: 14px;
   }
+  .control-row { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
   .control-group { display: flex; flex-direction: column; gap: 8px; }
   .control-group > label {
     font-size: 12px;
@@ -105,6 +108,10 @@
     cursor: pointer;
   }
   button:hover { border-color: var(--accent); color: var(--accent); }
+  .view-toggle { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; width: fit-content; }
+  .view-toggle button { border: none; border-radius: 0; background: var(--bg); padding: 8px 16px; }
+  .view-toggle button.active { background: var(--accent); color: #fff; font-weight: 600; }
+  .view-toggle button.active:hover { color: #fff; }
   .toolbar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
   #status { font-size: 13px; color: var(--muted); }
   .chart-card {
@@ -120,6 +127,19 @@
     color: var(--muted);
     padding: 60px 20px;
   }
+  #insight {
+    display: none;
+    margin-top: 14px;
+    background: #fff3e6;
+    border: 1px solid #ffb366;
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 13px;
+  }
+  #insight ol { margin: 6px 0 0 20px; padding: 0; }
+  #insight li { margin: 2px 0; }
+  .legend { display: none; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; color: var(--muted); }
+  .legend .bar { width: 160px; height: 12px; border-radius: 6px; background: linear-gradient(to right, #e8f0fe, #ff6d00); }
   footer {
     text-align: center;
     color: var(--muted);
@@ -136,11 +156,16 @@
 
 <main>
   <div class="controls">
-    <div class="control-group">
+    <div class="view-toggle" role="tablist">
+      <button id="view-heatmap" class="active">Week averages</button>
+      <button id="view-timeline">Timeline</button>
+    </div>
+
+    <div id="station-group" class="control-group" style="display:none;">
       <label>Stations</label>
       <div class="chips" id="station-chips"></div>
     </div>
-    <div class="control-group">
+    <div id="metric-group" class="control-group" style="display:none;">
       <label>Metrics</label>
       <div class="chips" id="metric-chips">
         <label><input type="checkbox" value="normal_bikes" checked> Normal bikes</label>
@@ -148,14 +173,31 @@
         <label><input type="checkbox" value="docks_available" checked> Docks available</label>
       </div>
     </div>
+
+    <div id="heat-controls" class="control-row">
+      <div class="control-group">
+        <label>Station</label>
+        <select id="heat-station"></select>
+      </div>
+      <div class="control-group">
+        <label>Metric</label>
+        <select id="heat-metric">
+          <option value="total_bikes" selected>Total bikes</option>
+          <option value="normal_bikes">Normal bikes</option>
+          <option value="electric_bikes">Electric bikes</option>
+          <option value="docks_available">Docks available</option>
+        </select>
+      </div>
+    </div>
+
     <div class="toolbar">
       <div class="control-group" style="flex-direction:row; align-items:center; gap:8px;">
         <label style="text-transform:none; letter-spacing:0;">Period:</label>
         <select id="range">
           <option value="1">Last 24 hours</option>
-          <option value="7" selected>Last 7 days</option>
+          <option value="7">Last 7 days</option>
           <option value="30">Last 30 days</option>
-          <option value="all">All time</option>
+          <option value="all" selected>All time</option>
         </select>
       </div>
       <button id="refresh">Refresh</button>
@@ -165,13 +207,19 @@
 
   <div class="chart-card">
     <div id="empty">No data yet. The monitoring workflow runs every 30 minutes and will populate the history here.</div>
-    <div class="chart-wrap">
+    <div class="chart-wrap" id="chart-wrap">
       <canvas id="chart"></canvas>
     </div>
+    <div class="legend" id="heat-legend">
+      <span>Fewer bikes</span>
+      <span class="bar"></span>
+      <span>More bikes</span>
+    </div>
+    <div id="insight"></div>
   </div>
 </main>
 
-<footer>Data from the Tembici GBFS feed &middot; Updated hourly by GitHub Actions</footer>
+<footer>Data from the Tembici GBFS feed &middot; Updated every 30 minutes by GitHub Actions</footer>
 
 <script>
 const PALETTE = [
@@ -184,14 +232,40 @@ const METRICS = {
   electric_bikes: { label: 'Electric bikes', borderDash: [6, 4] },
   docks_available:{ label: 'Docks available', borderDash: [2, 4] }
 };
+const HEAT_METRICS = {
+  total_bikes:    'Total bikes',
+  normal_bikes:   'Normal bikes',
+  electric_bikes: 'Electric bikes',
+  docks_available:'Docks available'
+};
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const HOUR_START = 6;
+const HOUR_END = 19;
+
+if (window.ChartDataLabels) {
+  Chart.register(window.ChartDataLabels);
+}
+if (window['chartjs-chart-matrix']) {
+  const m = window['chartjs-chart-matrix'];
+  Chart.register(m.MatrixController, m.MatrixElement);
+}
 
 let allRecords = [];
 let chart = null;
+let currentView = 'heatmap';
 
 const $ = (id) => document.getElementById(id);
 
 function parseTimestamp(ts) {
-  return new Date(ts.replace(' ', 'T'));
+  const [date, time] = ts.split(' ');
+  const [y, mo, d] = date.split('-').map(Number);
+  const [h, mi, s] = time.split(':').map(Number);
+  return new Date(y, mo - 1, d, h, mi, s);
+}
+
+function dayHourOf(ts) {
+  const dt = parseTimestamp(ts);
+  return { day: (dt.getDay() + 6) % 7, hour: dt.getHours() };
 }
 
 async function loadData() {
@@ -201,17 +275,21 @@ async function loadData() {
   if (!Array.isArray(allRecords)) allRecords = [];
 }
 
-function renderStations() {
-  const ids = [...new Set(allRecords.map(r => r.station_id))];
+function stationNames() {
   const names = {};
   allRecords.forEach(r => { names[r.station_id] = r.station_name; });
+  return names;
+}
+
+function renderStations() {
+  const ids = [...new Set(allRecords.map(r => r.station_id))];
+  const names = stationNames();
   ids.sort((a, b) => Number(a) - Number(b));
 
   const container = $('station-chips');
   container.innerHTML = '';
-  ids.forEach((sid, i) => {
+  ids.forEach(sid => {
     const label = document.createElement('label');
-    label.id = 'chip-' + sid;
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.value = sid;
@@ -228,6 +306,16 @@ function renderStations() {
   if (ids.length === 0) {
     container.innerHTML = '<span style="color:var(--muted);font-size:13px;">No stations recorded yet.</span>';
   }
+
+  const heatStation = $('heat-station');
+  heatStation.innerHTML = '';
+  ids.forEach(sid => {
+    const opt = document.createElement('option');
+    opt.value = sid;
+    opt.textContent = names[sid];
+    heatStation.appendChild(opt);
+  });
+  if (ids.length > 0) heatStation.value = ids[0];
 }
 
 function filterByRange(records) {
@@ -237,30 +325,51 @@ function filterByRange(records) {
   return records.filter(r => parseTimestamp(r.timestamp).getTime() >= cutoff);
 }
 
-function updateChart() {
+function metricValue(record, metric) {
+  if (metric === 'total_bikes') return (record.normal_bikes || 0) + (record.electric_bikes || 0);
+  return record[metric] ?? 0;
+}
+
+function heatColor(t) {
+  const c1 = [232, 240, 254];
+  const c2 = [255, 109, 0];
+  const r = Math.round(c1[0] + (c2[0] - c1[0]) * t);
+  const g = Math.round(c1[1] + (c2[1] - c1[1]) * t);
+  const b = Math.round(c1[2] + (c2[2] - c1[2]) * t);
+  return `rgb(${r},${g},${b})`;
+}
+
+function createChart(config) {
+  try {
+    chart = new Chart($('chart'), config);
+    return true;
+  } catch (err) {
+    destroyChart();
+    $('empty').style.display = 'block';
+    $('empty').textContent = 'Chart error: ' + err.message;
+    $('chart').style.display = 'none';
+    return false;
+  }
+}
+
+function renderTimeline() {
   const selectedStations = [...document.querySelectorAll('#station-chips input:checked')].map(i => i.value);
   const selectedMetrics = [...document.querySelectorAll('#metric-chips input:checked')].map(i => i.value);
-  $('status').textContent = `${selectedStations.length} station(s) \u00b7 ${allRecords.length} records`;
 
-  if (chart) { chart.destroy(); chart = null; }
-
-  if (selectedStations.length === 0 || selectedMetrics.length === 0) {
-    $('empty').style.display = 'block';
-    $('chart').style.display = 'none';
-    return;
-  }
-  $('empty').style.display = 'none';
-  $('chart').style.display = 'block';
+  if (selectedStations.length === 0 || selectedMetrics.length === 0) return false;
 
   const records = filterByRange(allRecords)
     .filter(r => selectedStations.includes(r.station_id))
+    .filter(r => {
+      const h = parseTimestamp(r.timestamp).getHours();
+      return h >= HOUR_START && h <= HOUR_END;
+    })
     .sort((a, b) => parseTimestamp(a.timestamp) - parseTimestamp(b.timestamp));
 
   const datasets = [];
-
   selectedStations.forEach((sid, idx) => {
     const color = PALETTE[idx % PALETTE.length];
-    const name = allRecords.find(r => r.station_id === sid)?.station_name || sid;
+    const name = stationNames()[sid] || sid;
     selectedMetrics.forEach(metric => {
       const points = records
         .filter(r => r.station_id === sid)
@@ -283,7 +392,7 @@ function updateChart() {
 
   datasets.forEach(ds => ds.data.sort((a, b) => a.x - b.x));
 
-  chart = new Chart($('chart'), {
+  return createChart({
     type: 'line',
     data: { datasets },
     options: {
@@ -292,6 +401,7 @@ function updateChart() {
       interaction: { mode: 'nearest', intersect: false },
       plugins: {
         legend: { position: 'bottom', labels: { boxWidth: 20, font: { size: 11 } } },
+        datalabels: { display: false },
         tooltip: {
           callbacks: {
             title: (items) => {
@@ -313,12 +423,168 @@ function updateChart() {
   });
 }
 
+function renderHeatmap() {
+  const sid = $('heat-station').value;
+  const metric = $('heat-metric').value;
+  const metricLabel = HEAT_METRICS[metric];
+  const name = stationNames()[sid] || sid;
+
+  const records = filterByRange(allRecords).filter(r => r.station_id === sid);
+  if (records.length === 0) return false;
+
+  const sums = new Map();
+  const counts = new Map();
+  records.forEach(r => {
+    const { day, hour } = dayHourOf(r.timestamp);
+    const key = day * 24 + hour;
+    sums.set(key, (sums.get(key) || 0) + metricValue(r, metric));
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+
+  const cells = [];
+  let maxV = 0;
+  for (let day = 0; day < 7; day++) {
+    for (let hour = HOUR_START; hour <= HOUR_END; hour++) {
+      const key = day * 24 + hour;
+      let v = null;
+      if (counts.has(key)) v = sums.get(key) / counts.get(key);
+      cells.push({ x: hour, y: day, v: v, backgroundColor: '#f1f5f9' });
+      if (v !== null && v > maxV) maxV = v;
+    }
+  }
+  cells.forEach(c => {
+    if (c.v !== null) c.backgroundColor = heatColor(maxV > 0 ? c.v / maxV : 0);
+  });
+
+  const chartOk = createChart({
+    type: 'matrix',
+    data: {
+      datasets: [{
+        label: `${name} - ${metricLabel}`,
+        data: cells,
+        backgroundColor: (ctx) => ctx.dataset.data[ctx.dataIndex].backgroundColor,
+        borderWidth: 1,
+        borderColor: '#ffffff',
+        width: ({ chart: c }) => {
+          const a = c.chartArea;
+          return a ? Math.max(8, a.width / (HOUR_END - HOUR_START + 1) - 2) : 8;
+        },
+        height: ({ chart: c }) => {
+          const a = c.chartArea;
+          return a ? Math.max(8, a.height / 7 - 2) : 8;
+        }
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        datalabels: {
+          display: (ctx) => ctx.dataset.data[ctx.dataIndex].v !== null,
+          formatter: (value) => String(Math.round(value.v)),
+          color: '#1e293b',
+          anchor: 'center',
+          align: 'center',
+          font: { size: 9, weight: '600' }
+        },
+        tooltip: {
+          callbacks: {
+            title: (items) => `${DAYS[items[0].parsed.y]} ~${items[0].parsed.x}:00`,
+            label: (item) => {
+              const v = item.parsed.v;
+              return v === null ? 'no data' : `avg ${metricLabel.toLowerCase()}: ${v.toFixed(1)}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'linear',
+          offset: false,
+          min: HOUR_START - 0.5,
+          max: HOUR_END + 0.5,
+          grid: { display: false },
+          border: { display: false },
+          ticks: { stepSize: 1, callback: (v) => v + ':00', color: '#64748b', font: { size: 10 } }
+        },
+        y: {
+          type: 'linear',
+          offset: false,
+          min: -0.5,
+          max: 6.5,
+          grid: { display: false },
+          border: { display: false },
+          ticks: { stepSize: 1, callback: (v) => DAYS[v] || '', color: '#64748b', font: { size: 10 } }
+        }
+      }
+    }
+  });
+
+  const ranked = cells.filter(c => c.v !== null).sort((a, b) => b.v - a.v).slice(0, 3);
+  const insight = $('insight');
+  if (ranked.length > 0) {
+    insight.style.display = 'block';
+    insight.innerHTML = '<strong>Best times for available bikes (' + name + '):</strong>' +
+      '<ol>' + ranked.map(c =>
+        `<li>${DAYS[c.y]} ~${String(c.x).padStart(2, '0')}:00 &mdash; avg <strong>${c.v.toFixed(1)}</strong> ${metricLabel.toLowerCase()}</li>`
+      ).join('') + '</ol>';
+  }
+  return chartOk;
+}
+
+function destroyChart() {
+  const canvas = $('chart');
+  const existing = Chart.getChart ? Chart.getChart(canvas) : null;
+  if (existing) existing.destroy();
+  if (chart && chart !== existing) chart.destroy();
+  chart = null;
+}
+
+function updateChart() {
+  destroyChart();
+
+  const records = allRecords.length;
+  $('status').textContent = `${records} record(s)`;
+
+  let ok = false;
+  if (currentView === 'heatmap') {
+    ok = renderHeatmap();
+  } else {
+    ok = renderTimeline();
+  }
+
+  $('empty').style.display = ok ? 'none' : 'block';
+  $('empty').textContent = currentView === 'heatmap'
+    ? 'No data for the selected station in this period.'
+    : 'No data yet. The monitoring workflow runs every 30 minutes and will populate the history here.';
+  $('chart').style.display = ok ? 'block' : 'none';
+  $('heat-legend').style.display = (currentView === 'heatmap' && ok) ? 'flex' : 'none';
+  $('insight').style.display = (currentView === 'heatmap' && ok) ? 'block' : 'none';
+}
+
+function setView(view) {
+  currentView = view;
+  $('view-timeline').classList.toggle('active', view === 'timeline');
+  $('view-heatmap').classList.toggle('active', view === 'heatmap');
+  $('heat-controls').style.display = view === 'heatmap' ? 'flex' : 'none';
+  $('station-group').style.display = view === 'timeline' ? 'block' : 'none';
+  $('metric-group').style.display = view === 'timeline' ? 'block' : 'none';
+  $('chart-wrap').style.height = view === 'heatmap' ? '380px' : '420px';
+  updateChart();
+}
+
+$('view-timeline').addEventListener('click', () => setView('timeline'));
+$('view-heatmap').addEventListener('click', () => setView('heatmap'));
+
 document.querySelectorAll('#metric-chips input').forEach(cb => {
   cb.addEventListener('change', () => {
     cb.closest('label').classList.toggle('checked', cb.checked);
-    updateChart();
+    if (currentView === 'timeline') updateChart();
   });
 });
+$('heat-station').addEventListener('change', () => { if (currentView === 'heatmap') updateChart(); });
+$('heat-metric').addEventListener('change', () => { if (currentView === 'heatmap') updateChart(); });
 $('range').addEventListener('change', updateChart);
 $('refresh').addEventListener('click', init);
 
@@ -326,7 +592,7 @@ async function init() {
   try {
     await loadData();
     renderStations();
-    updateChart();
+    setView(currentView);
   } catch (err) {
     $('empty').style.display = 'block';
     $('empty').textContent = 'Could not load station_history.json: ' + err.message;
