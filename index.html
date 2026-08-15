@@ -3,258 +3,270 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Bike Itaú - Station Monitor</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-matrix@2.0.1/dist/chartjs-chart-matrix.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<title>Bike trip o'clock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #f4f6f8;
-    --card: #ffffff;
-    --border: #e2e8f0;
-    --text: #1e293b;
-    --muted: #64748b;
-    --accent: #ff6d00;
+    --bg: oklch(0.97 0.008 95);
+    --card: oklch(0.99 0.006 95);
+    --border: oklch(0.9 0.012 90);
+    --text: oklch(0.24 0.012 70);
+    --muted: oklch(0.55 0.015 70);
+    --muted2: oklch(0.58 0.015 70);
+    --accent: oklch(0.55 0.14 152);
+    --accent-dark: oklch(0.47 0.14 152);
+    --accent-fg: oklch(0.99 0.01 152);
+    --accent-bg: oklch(0.97 0.02 152);
+    --accent-border: oklch(0.75 0.09 152);
+    --ready-all-bg: oklch(0.62 0.14 152);
+    --ready-all-fg: oklch(0.99 0.02 152);
+    --ready-all-border: oklch(0.56 0.14 152);
+    --ready-most-bg: oklch(0.84 0.09 118);
+    --ready-most-fg: oklch(0.3 0.06 118);
+    --ready-most-border: oklch(0.8 0.09 118);
+    --ready-some-bg: oklch(0.93 0.03 80);
+    --ready-some-fg: oklch(0.45 0.04 70);
+    --ready-some-border: oklch(0.89 0.03 80);
+    --ready-none-bg: oklch(0.93 0.006 90);
+    --ready-none-fg: oklch(0.66 0.01 70);
+    --ready-none-border: oklch(0.9 0.01 90);
+    --nodata-bg: oklch(0.97 0.004 90);
+    --nodata-fg: oklch(0.75 0.01 70);
   }
   * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); -webkit-text-size-adjust: 100%; }
   body {
-    margin: 0;
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    background: var(--bg);
+    font-family: Archivo, Helvetica, sans-serif;
     color: var(--text);
+    padding: 28px 24px 64px;
   }
-  header {
-    background: var(--card);
-    border-bottom: 1px solid var(--border);
-    padding: 16px 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { color: var(--accent-dark); text-decoration: underline; }
+  .mono { font-family: 'IBM Plex Mono', monospace; }
+  @keyframes bp-pulse { 0%,100% { opacity: 1 } 50% { opacity: 0.35 } }
+
+  .wrap { max-width: 1060px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+
+  .topbar { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .topbar-left { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .title { font-size: 19px; font-weight: 800; letter-spacing: -0.02em; }
+  .subtitle { font-size: 11px; color: var(--muted); }
+  .back-link { font-size: 11px; }
+  .live { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--muted); }
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ready-all-bg); animation: bp-pulse 2.4s ease-in-out infinite; }
+
+  .top-grid { display: grid; grid-template-columns: 1.55fr 1fr; gap: 14px; align-items: stretch; }
+  @media (max-width: 720px) { .top-grid { grid-template-columns: 1fr; } }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 18px; }
+
+  .hero { padding: 26px 28px; display: flex; flex-direction: column; gap: 14px; }
+  .kicker { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted2); }
+  .hero-numbers { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
+  .hero-day { font-size: 56px; line-height: 0.92; font-weight: 800; letter-spacing: -0.035em; }
+  .hero-time { font-size: 56px; line-height: 0.92; font-weight: 800; letter-spacing: -0.035em; color: var(--accent); }
+  .hero-line { font-size: 16px; max-width: 46ch; color: oklch(0.36 0.012 70); }
+  .hero-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+  .btn-primary {
+    font-family: Archivo, sans-serif; font-size: 13px; font-weight: 600;
+    padding: 10px 16px; border-radius: 999px; border: 0; cursor: pointer;
+    background: var(--accent); color: var(--accent-fg);
   }
-  header h1 {
-    font-size: 18px;
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+  .btn-primary:hover { background: var(--accent-dark); }
+  .btn-ghost {
+    font-family: Archivo, sans-serif; font-size: 13px; font-weight: 600;
+    padding: 10px 16px; border-radius: 999px; border: 1px solid var(--border);
+    background: transparent; color: oklch(0.3 0.012 70); cursor: pointer;
   }
-  header h1 .dot {
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: var(--accent);
-    display: inline-block;
+  .btn-ghost:hover { background: oklch(0.95 0.01 95); text-decoration: none; }
+
+  .now-card { padding: 20px 22px; display: flex; flex-direction: column; gap: 12px; }
+  .now-row { display: flex; align-items: center; gap: 12px; }
+  .now-badge { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; }
+  .now-verdict { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+  .now-stamp { font-size: 11px; color: var(--muted); }
+  .hr { height: 1px; background: oklch(0.92 0.01 90); }
+  .runner-up {
+    display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+    padding: 8px 10px; border-radius: 10px; border: 1px solid oklch(0.92 0.01 90);
+    background: oklch(0.985 0.006 95); cursor: pointer; font-family: Archivo, sans-serif;
   }
-  header a { color: var(--muted); text-decoration: none; font-size: 13px; }
-  main {
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 24px;
+  .runner-up:hover { border-color: var(--accent-border); background: var(--accent-bg); }
+  .runner-up + .runner-up { margin-top: 6px; }
+  .runner-up .when { font-size: 14px; font-weight: 700; min-width: 92px; }
+  .runner-up .detail { font-size: 11px; color: var(--muted); }
+
+  .grid-card { padding: 22px 24px 18px; display: flex; flex-direction: column; gap: 16px; }
+  .grid-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .grid-head-title { font-size: 17px; font-weight: 700; letter-spacing: -0.015em; }
+  .grid-head-sub { font-size: 13px; color: var(--muted); }
+  .legend { display: flex; align-items: center; gap: 14px; font-size: 10.5px; color: var(--muted); flex-wrap: wrap; }
+  .legend span.sw { display: flex; align-items: center; gap: 6px; }
+  .swatch { width: 12px; height: 12px; border-radius: 3px; }
+
+  .rows { display: flex; flex-direction: column; gap: 4px; }
+  .row { display: grid; grid-template-columns: 44px minmax(0, 1fr) 128px; align-items: center; gap: 8px; }
+  .row-day { font-size: 12px; font-weight: 600; }
+  .row-cells { display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 4px; min-width: 0; }
+  .cell {
+    height: 38px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center; min-width: 0; padding: 0;
   }
-  .controls {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 16px;
-    margin-bottom: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
+  .cell:hover { outline: 2px solid oklch(0.35 0.02 70); outline-offset: 1px; }
+  .row-best { font-size: 11px; color: var(--muted); text-align: right; }
+  .hour-labels { display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 4px; min-width: 0; }
+  .hour-label { text-align: center; font-size: 10px; color: oklch(0.6 0.015 70); }
+
+  .controls-card { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
+  .controls-row { display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-start; }
+  .control-col { display: flex; flex-direction: column; gap: 8px; }
+  .control-label { font-size: 13px; font-weight: 600; }
+  .stepper { display: flex; align-items: center; gap: 10px; }
+  .step-btn {
+    width: 34px; height: 34px; border-radius: 9px; border: 1px solid oklch(0.88 0.012 90);
+    background: oklch(0.985 0.006 95); cursor: pointer; font-size: 17px; font-weight: 600;
+    color: oklch(0.3 0.012 70);
   }
-  .control-row { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
-  .control-group { display: flex; flex-direction: column; gap: 8px; }
-  .control-group > label {
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .05em;
-    color: var(--muted);
+  .step-btn:hover { background: oklch(0.95 0.01 95); }
+  .step-value { min-width: 88px; text-align: center; font-size: 15px; font-weight: 700; }
+  .hint { font-size: 12px; color: var(--muted2); }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    padding: 9px 14px; border-radius: 999px; cursor: pointer; font-family: Archivo, sans-serif;
+    font-size: 13px; font-weight: 600;
   }
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
-  .chips label {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 6px 12px;
-    font-size: 13px;
-    cursor: pointer;
-    background: var(--bg);
-    user-select: none;
-  }
-  .chips label input { accent-color: var(--accent); }
-  .chips label.checked {
-    background: #fff3e6;
-    border-color: var(--accent);
-    font-weight: 600;
-  }
-  select {
-    padding: 8px 12px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    font-size: 13px;
-    background: var(--card);
-  }
-  button {
-    border: 1px solid var(--border);
-    background: var(--card);
-    border-radius: 8px;
-    padding: 8px 14px;
-    font-size: 13px;
-    cursor: pointer;
-  }
-  button:hover { border-color: var(--accent); color: var(--accent); }
-  .view-toggle { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; width: fit-content; }
-  .view-toggle button { border: none; border-radius: 0; background: var(--bg); padding: 8px 16px; }
-  .view-toggle button.active { background: var(--accent); color: #fff; font-weight: 600; }
-  .view-toggle button.active:hover { color: #fff; }
-  .toolbar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-  #status { font-size: 13px; color: var(--muted); }
-  .chart-card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 16px;
-  }
-  .chart-wrap { position: relative; height: 420px; }
-  #empty {
-    display: none;
-    text-align: center;
-    color: var(--muted);
-    padding: 60px 20px;
-  }
-  #insight {
-    display: none;
-    margin-top: 14px;
-    background: #fff3e6;
-    border: 1px solid #ffb366;
-    border-radius: 8px;
-    padding: 12px 16px;
-    font-size: 13px;
-  }
-  #insight ol { margin: 6px 0 0 20px; padding: 0; }
-  #insight li { margin: 2px 0; }
-  .legend { display: none; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; color: var(--muted); }
-  .legend .bar { width: 160px; height: 12px; border-radius: 6px; background: linear-gradient(to right, #e8f0fe, #ff6d00); }
-  footer {
-    text-align: center;
-    color: var(--muted);
-    font-size: 12px;
-    padding: 24px;
+  .chip:hover { filter: brightness(0.97); }
+
+  .footer { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; font-size: 10.5px; color: oklch(0.6 0.015 70); }
+
+  @media (max-width: 720px) {
+    body { padding: 18px 14px 48px; }
+    .hero, .controls-card { padding: 18px 16px; }
+    .grid-card { padding: 18px 14px 14px; }
+    .hero-day, .hero-time { font-size: 40px; }
+    .row { grid-template-columns: 30px 1fr; }
+    .row-cells, .hour-labels { gap: 3px; }
+    .cell { height: 30px; font-size: 10px; }
+    .row-best { display: none; }
+    .hour-label:nth-child(even) { display: none; }
+    .controls-row { gap: 20px; }
+    .hero-actions .btn-primary, .hero-actions .btn-ghost { flex: 1 1 100%; text-align: center; }
   }
 </style>
 </head>
 <body>
-<header>
-  <h1><span class="dot"></span>Bike Ita&uacute; Station Monitor</h1>
-  <a href="https://github.com/pmqueiroz/gbfs-scrapper" target="_blank" rel="noopener">View source on GitHub</a>
-</header>
+<div class="wrap">
 
-<main>
-  <div class="controls">
-    <div class="view-toggle" role="tablist">
-      <button id="view-heatmap" class="active">Week averages</button>
-      <button id="view-timeline">Timeline</button>
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="title">Bike trip o'clock</div>
+      <div class="subtitle mono" id="subtitle"></div>
+      <a class="back-link" href="legacy-planner.html">Legacy planner &rarr;</a>
     </div>
+    <div class="live"><span class="live-dot"></span>live feed</div>
+  </div>
 
-    <div id="station-group" class="control-group" style="display:none;">
-      <label>Stations</label>
-      <div class="chips" id="station-chips"></div>
-    </div>
-    <div id="metric-group" class="control-group" style="display:none;">
-      <label>Metrics</label>
-      <div class="chips" id="metric-chips">
-        <label><input type="checkbox" value="normal_bikes" checked> Normal bikes</label>
-        <label><input type="checkbox" value="electric_bikes" checked> Electric bikes</label>
-        <label><input type="checkbox" value="docks_available" checked> Docks available</label>
+  <div class="top-grid">
+    <div class="card hero">
+      <div class="kicker mono" id="hero-kicker">Best bet this week</div>
+      <div class="hero-numbers">
+        <div class="hero-day" id="hero-day">&mdash;</div>
+        <div class="hero-time" id="hero-time"></div>
+      </div>
+      <div class="hero-line" id="hero-line"></div>
+      <div class="hero-actions">
+        <button type="button" class="btn-primary" id="copy-btn">Copy plan for the group chat</button>
+        <a class="btn-ghost" id="cal-link" download="bike-trip.ics">Add to calendar</a>
       </div>
     </div>
 
-    <div id="heat-controls" class="control-row">
-      <div class="control-group">
-        <label>Station</label>
-        <select id="heat-station"></select>
+    <div class="card now-card">
+      <div class="kicker mono">Right now</div>
+      <div class="now-row">
+        <div class="now-badge" id="now-badge"></div>
+        <div>
+          <div class="now-verdict" id="now-verdict"></div>
+          <div class="now-stamp mono" id="now-stamp"></div>
+        </div>
       </div>
-      <div class="control-group">
-        <label>Metric</label>
-        <select id="heat-metric">
-          <option value="total_bikes" selected>Total bikes</option>
-          <option value="normal_bikes">Normal bikes</option>
-          <option value="electric_bikes">Electric bikes</option>
-          <option value="docks_available">Docks available</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="toolbar">
-      <div class="control-group" style="flex-direction:row; align-items:center; gap:8px;">
-        <label style="text-transform:none; letter-spacing:0;">Period:</label>
-        <select id="range">
-          <option value="1">Last 24 hours</option>
-          <option value="7">Last 7 days</option>
-          <option value="30">Last 30 days</option>
-          <option value="all" selected>All time</option>
-        </select>
-      </div>
-      <button id="refresh">Refresh</button>
-      <span id="status"></span>
+      <div class="hr"></div>
+      <div class="kicker mono">Next best windows</div>
+      <div id="runner-ups"></div>
     </div>
   </div>
 
-  <div class="chart-card">
-    <div id="empty">No data yet. The monitoring workflow runs every 30 minutes and will populate the history here.</div>
-    <div class="chart-wrap" id="chart-wrap">
-      <canvas id="chart"></canvas>
+  <div class="card grid-card">
+    <div class="grid-head">
+      <div>
+        <div class="grid-head-title">Pick an hour, any hour</div>
+        <div class="grid-head-sub">Green = every station had enough bikes. Tap a square to plan it.</div>
+      </div>
+      <div class="legend mono">
+        <span class="sw"><span class="swatch" style="background: var(--ready-all-bg)"></span>all ready</span>
+        <span class="sw"><span class="swatch" style="background: var(--ready-most-bg)"></span>most</span>
+        <span class="sw"><span class="swatch" style="background: var(--ready-some-bg)"></span>some</span>
+        <span class="sw"><span class="swatch" style="background: var(--ready-none-bg)"></span>none</span>
+      </div>
     </div>
-    <div class="legend" id="heat-legend">
-      <span>Fewer bikes</span>
-      <span class="bar"></span>
-      <span>More bikes</span>
-    </div>
-    <div id="insight"></div>
-  </div>
-</main>
 
-<footer>Data from the Tembici GBFS feed &middot; Updated every 30 minutes by GitHub Actions</footer>
+    <div class="rows" id="rows"></div>
+  </div>
+
+  <div class="card controls-card">
+    <div class="kicker mono">Who's coming &amp; when</div>
+    <div class="controls-row">
+      <div class="control-col">
+        <div class="control-label">Group size</div>
+        <div class="stepper">
+          <button type="button" class="step-btn" id="dec-btn">&ndash;</button>
+          <div class="step-value" id="group-label"></div>
+          <button type="button" class="step-btn" id="inc-btn">+</button>
+        </div>
+        <div class="hint" id="min-bikes-note"></div>
+      </div>
+
+      <div class="control-col">
+        <div class="control-label">Stations we meet at</div>
+        <div class="chips" id="station-chips"></div>
+      </div>
+
+      <div class="control-col">
+        <div class="control-label">When can you ride?</div>
+        <div class="chips" id="window-chips"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer mono">
+    <span>Averages from the Tembici GBFS feed &middot; refreshed every 30 min</span>
+    <span id="worst-line"></span>
+  </div>
+</div>
 
 <script>
-const PALETTE = [
-  '#ff6d00', '#1565c0', '#2e7d32', '#8e24aa', '#00838f',
-  '#c62828', '#f9a825', '#4527a0', '#ef6c00', '#00695c',
-  '#5d4037', '#546e7a'
-];
-const METRICS = {
-  normal_bikes:   { label: 'Normal bikes',   borderDash: [] },
-  electric_bikes: { label: 'Electric bikes', borderDash: [6, 4] },
-  docks_available:{ label: 'Docks available', borderDash: [2, 4] }
-};
-const HEAT_METRICS = {
-  total_bikes:    'Total bikes',
-  normal_bikes:   'Normal bikes',
-  electric_bikes: 'Electric bikes',
-  docks_available:'Docks available'
-};
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const FULL = { Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday', Fri: 'Friday', Sat: 'Saturday', Sun: 'Sunday' };
 const HOUR_START = 6;
 const HOUR_END = 19;
+const HOURS = [];
+for (let h = HOUR_START; h <= HOUR_END; h++) HOURS.push(h);
 
-if (window.ChartDataLabels) {
-  Chart.register(window.ChartDataLabels);
-}
-if (window['chartjs-chart-matrix']) {
-  const m = window['chartjs-chart-matrix'];
-  Chart.register(m.MatrixController, m.MatrixElement);
-}
+const WINDOWS = [
+  { key: 'any', label: 'Any time', test: () => true },
+  { key: 'morning', label: 'Mornings', test: h => h < 11 },
+  { key: 'midday', label: 'Midday', test: h => h >= 11 && h < 16 },
+  { key: 'evening', label: 'After work', test: h => h >= 16 }
+];
 
-let allRecords = [];
-let chart = null;
-let currentView = 'heatmap';
+const $ = id => document.getElementById(id);
 
-const $ = (id) => document.getElementById(id);
+let STATIONS = [];       // [{id, name}]
+let AVG = {};            // AVG[stationId][day*24+hour] = {sum, count} -> resolved to avg
+let recordCount = 0;
+
+const state = { group: 5, active: {}, win: 'any', picked: null, copied: false };
 
 function parseTimestamp(ts) {
   const [date, time] = ts.split(' ');
@@ -262,342 +274,283 @@ function parseTimestamp(ts) {
   const [h, mi, s] = time.split(':').map(Number);
   return new Date(y, mo - 1, d, h, mi, s);
 }
-
 function dayHourOf(ts) {
   const dt = parseTimestamp(ts);
   return { day: (dt.getDay() + 6) % 7, hour: dt.getHours() };
 }
+function hh(h) { return String(h).padStart(2, '0') + ':00'; }
+function minBikes() { return Math.max(1, state.group); }
 
 async function loadData() {
   const res = await fetch('station_history.json', { cache: 'no-store' });
   if (!res.ok) throw new Error('HTTP ' + res.status);
-  allRecords = await res.json();
-  if (!Array.isArray(allRecords)) allRecords = [];
-}
+  const records = await res.json();
+  recordCount = records.length;
 
-function stationNames() {
   const names = {};
-  allRecords.forEach(r => { names[r.station_id] = r.station_name; });
-  return names;
-}
-
-function renderStations() {
-  const ids = [...new Set(allRecords.map(r => r.station_id))];
-  const names = stationNames();
-  ids.sort((a, b) => Number(a) - Number(b));
-
-  const container = $('station-chips');
-  container.innerHTML = '';
-  ids.forEach(sid => {
-    const label = document.createElement('label');
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.value = sid;
-    cb.checked = ids.length <= 6;
-    cb.addEventListener('change', () => {
-      label.classList.toggle('checked', cb.checked);
-      updateChart();
-    });
-    label.appendChild(cb);
-    label.appendChild(document.createTextNode(' ' + names[sid]));
-    container.appendChild(label);
-    if (cb.checked) label.classList.add('checked');
-  });
-  if (ids.length === 0) {
-    container.innerHTML = '<span style="color:var(--muted);font-size:13px;">No stations recorded yet.</span>';
-  }
-
-  const heatStation = $('heat-station');
-  heatStation.innerHTML = '';
-  ids.forEach(sid => {
-    const opt = document.createElement('option');
-    opt.value = sid;
-    opt.textContent = names[sid];
-    heatStation.appendChild(opt);
-  });
-  if (ids.length > 0) heatStation.value = ids[0];
-}
-
-function filterByRange(records) {
-  const range = $('range').value;
-  if (range === 'all') return records;
-  const cutoff = Date.now() - Number(range) * 24 * 3600 * 1000;
-  return records.filter(r => parseTimestamp(r.timestamp).getTime() >= cutoff);
-}
-
-function metricValue(record, metric) {
-  if (metric === 'total_bikes') return (record.normal_bikes || 0) + (record.electric_bikes || 0);
-  return record[metric] ?? 0;
-}
-
-function heatColor(t) {
-  const c1 = [232, 240, 254];
-  const c2 = [255, 109, 0];
-  const r = Math.round(c1[0] + (c2[0] - c1[0]) * t);
-  const g = Math.round(c1[1] + (c2[1] - c1[1]) * t);
-  const b = Math.round(c1[2] + (c2[2] - c1[2]) * t);
-  return `rgb(${r},${g},${b})`;
-}
-
-function createChart(config) {
-  try {
-    chart = new Chart($('chart'), config);
-    return true;
-  } catch (err) {
-    destroyChart();
-    $('empty').style.display = 'block';
-    $('empty').textContent = 'Chart error: ' + err.message;
-    $('chart').style.display = 'none';
-    return false;
-  }
-}
-
-function renderTimeline() {
-  const selectedStations = [...document.querySelectorAll('#station-chips input:checked')].map(i => i.value);
-  const selectedMetrics = [...document.querySelectorAll('#metric-chips input:checked')].map(i => i.value);
-
-  if (selectedStations.length === 0 || selectedMetrics.length === 0) return false;
-
-  const records = filterByRange(allRecords)
-    .filter(r => selectedStations.includes(r.station_id))
-    .filter(r => {
-      const h = parseTimestamp(r.timestamp).getHours();
-      return h >= HOUR_START && h <= HOUR_END;
-    })
-    .sort((a, b) => parseTimestamp(a.timestamp) - parseTimestamp(b.timestamp));
-
-  const datasets = [];
-  selectedStations.forEach((sid, idx) => {
-    const color = PALETTE[idx % PALETTE.length];
-    const name = stationNames()[sid] || sid;
-    selectedMetrics.forEach(metric => {
-      const points = records
-        .filter(r => r.station_id === sid)
-        .map(r => ({ x: parseTimestamp(r.timestamp), y: r[metric] ?? 0 }));
-      if (points.length === 0) return;
-      datasets.push({
-        label: `${name} (${METRICS[metric].label})`,
-        data: points,
-        borderColor: color,
-        backgroundColor: color,
-        borderDash: METRICS[metric].borderDash,
-        borderWidth: 2,
-        pointRadius: 2,
-        pointHoverRadius: 5,
-        tension: 0.25,
-        fill: false
-      });
-    });
-  });
-
-  datasets.forEach(ds => ds.data.sort((a, b) => a.x - b.x));
-
-  return createChart({
-    type: 'line',
-    data: { datasets },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: 'nearest', intersect: false },
-      plugins: {
-        legend: { position: 'bottom', labels: { boxWidth: 20, font: { size: 11 } } },
-        datalabels: { display: false },
-        tooltip: {
-          callbacks: {
-            title: (items) => {
-              const d = items[0].parsed.x;
-              return d ? d.toLocaleString('pt-BR') : '';
-            }
-          }
-        }
-      },
-      scales: {
-        x: {
-          type: 'time',
-          time: { unit: 'hour', displayFormats: { hour: 'dd/MM HH:mm' } },
-          ticks: { maxTicksLimit: 12, font: { size: 11 } }
-        },
-        y: { beginAtZero: true, ticks: { precision: 0, font: { size: 11 } } }
-      }
-    }
-  });
-}
-
-function renderHeatmap() {
-  const sid = $('heat-station').value;
-  const metric = $('heat-metric').value;
-  const metricLabel = HEAT_METRICS[metric];
-  const name = stationNames()[sid] || sid;
-
-  const records = filterByRange(allRecords).filter(r => r.station_id === sid);
-  if (records.length === 0) return false;
-
-  const sums = new Map();
-  const counts = new Map();
+  const sums = {}; // sid -> key -> {sum,count}
   records.forEach(r => {
+    names[r.station_id] = r.station_name;
     const { day, hour } = dayHourOf(r.timestamp);
+    if (hour < HOUR_START || hour > HOUR_END) return;
     const key = day * 24 + hour;
-    sums.set(key, (sums.get(key) || 0) + metricValue(r, metric));
-    counts.set(key, (counts.get(key) || 0) + 1);
+    sums[r.station_id] = sums[r.station_id] || {};
+    const cur = sums[r.station_id][key] || { sum: 0, count: 0 };
+    cur.sum += (r.normal_bikes || 0) + (r.electric_bikes || 0);
+    cur.count += 1;
+    sums[r.station_id][key] = cur;
   });
 
-  const cells = [];
-  let maxV = 0;
-  for (let day = 0; day < 7; day++) {
-    for (let hour = HOUR_START; hour <= HOUR_END; hour++) {
-      const key = day * 24 + hour;
-      let v = null;
-      if (counts.has(key)) v = sums.get(key) / counts.get(key);
-      cells.push({ x: hour, y: day, v: v, backgroundColor: '#f1f5f9' });
-      if (v !== null && v > maxV) maxV = v;
-    }
-  }
-  cells.forEach(c => {
-    if (c.v !== null) c.backgroundColor = heatColor(maxV > 0 ? c.v / maxV : 0);
-  });
-
-  const chartOk = createChart({
-    type: 'matrix',
-    data: {
-      datasets: [{
-        label: `${name} - ${metricLabel}`,
-        data: cells,
-        backgroundColor: (ctx) => ctx.dataset.data[ctx.dataIndex].backgroundColor,
-        borderWidth: 1,
-        borderColor: '#ffffff',
-        width: ({ chart: c }) => {
-          const a = c.chartArea;
-          return a ? Math.max(8, a.width / (HOUR_END - HOUR_START + 1) - 2) : 8;
-        },
-        height: ({ chart: c }) => {
-          const a = c.chartArea;
-          return a ? Math.max(8, a.height / 7 - 2) : 8;
-        }
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        datalabels: {
-          display: (ctx) => ctx.dataset.data[ctx.dataIndex].v !== null,
-          formatter: (value) => String(Math.round(value.v)),
-          color: '#1e293b',
-          anchor: 'center',
-          align: 'center',
-          font: { size: 9, weight: '600' }
-        },
-        tooltip: {
-          callbacks: {
-            title: (items) => `${DAYS[items[0].parsed.y]} ~${items[0].parsed.x}:00`,
-            label: (item) => {
-              const v = item.parsed.v;
-              return v === null ? 'no data' : `avg ${metricLabel.toLowerCase()}: ${v.toFixed(1)}`;
-            }
-          }
-        }
-      },
-      scales: {
-        x: {
-          type: 'linear',
-          offset: false,
-          min: HOUR_START - 0.5,
-          max: HOUR_END + 0.5,
-          grid: { display: false },
-          border: { display: false },
-          ticks: { stepSize: 1, callback: (v) => v + ':00', color: '#64748b', font: { size: 10 } }
-        },
-        y: {
-          type: 'linear',
-          offset: false,
-          min: -0.5,
-          max: 6.5,
-          grid: { display: false },
-          border: { display: false },
-          ticks: { stepSize: 1, callback: (v) => DAYS[v] || '', color: '#64748b', font: { size: 10 } }
-        }
-      }
-    }
-  });
-
-  const ranked = cells.filter(c => c.v !== null).sort((a, b) => b.v - a.v).slice(0, 3);
-  const insight = $('insight');
-  if (ranked.length > 0) {
-    insight.style.display = 'block';
-    insight.innerHTML = '<strong>Best times for available bikes (' + name + '):</strong>' +
-      '<ol>' + ranked.map(c =>
-        `<li>${DAYS[c.y]} ~${String(c.x).padStart(2, '0')}:00 &mdash; avg <strong>${c.v.toFixed(1)}</strong> ${metricLabel.toLowerCase()}</li>`
-      ).join('') + '</ol>';
-  }
-  return chartOk;
+  STATIONS = Object.keys(names).sort((a, b) => Number(a) - Number(b)).map(id => ({ id, name: names[id] }));
+  STATIONS.forEach(s => { state.active[s.id] = true; });
+  AVG = sums;
 }
 
-function destroyChart() {
-  const canvas = $('chart');
-  const existing = Chart.getChart ? Chart.getChart(canvas) : null;
-  if (existing) existing.destroy();
-  if (chart && chart !== existing) chart.destroy();
-  chart = null;
+function bikesAt(day, hour, sid) {
+  const key = day * 24 + hour;
+  const slot = AVG[sid] && AVG[sid][key];
+  return slot ? slot.sum / slot.count : null;
 }
 
-function updateChart() {
-  destroyChart();
+function cellAt(day, hour) {
+  const act = STATIONS.filter(s => state.active[s.id]);
+  if (act.length === 0) return { ready: 0, total: 0, avg: 0, none: true };
+  const bikes = act.map(s => bikesAt(day, hour, s.id));
+  if (bikes.some(b => b === null)) return { ready: 0, total: act.length, avg: 0, none: true };
+  const ok = bikes.filter(b => b >= minBikes());
+  const avg = bikes.reduce((a, b) => a + b, 0) / bikes.length;
+  return { ready: ok.length, total: act.length, avg, none: false };
+}
 
-  const records = allRecords.length;
-  $('status').textContent = `${records} record(s)`;
+function paint(c) {
+  if (c.none) return { bg: 'var(--nodata-bg)', fg: 'var(--nodata-fg)', border: '1px dashed var(--border)' };
+  const r = c.total ? c.ready / c.total : 0;
+  if (r >= 1) return { bg: 'var(--ready-all-bg)', fg: 'var(--ready-all-fg)', border: '1px solid var(--ready-all-border)' };
+  if (r >= 0.6) return { bg: 'var(--ready-most-bg)', fg: 'var(--ready-most-fg)', border: '1px solid var(--ready-most-border)' };
+  if (r > 0) return { bg: 'var(--ready-some-bg)', fg: 'var(--ready-some-fg)', border: '1px solid var(--ready-some-border)' };
+  return { bg: 'var(--ready-none-bg)', fg: 'var(--ready-none-fg)', border: '1px solid var(--ready-none-border)' };
+}
 
-  let ok = false;
-  if (currentView === 'heatmap') {
-    ok = renderHeatmap();
+function ranked() {
+  const test = (WINDOWS.find(w => w.key === state.win) || WINDOWS[0]).test;
+  const all = [];
+  DAYS.forEach((d, di) => HOURS.forEach(h => {
+    if (!test(h)) return;
+    const c = cellAt(di, h);
+    if (c.none) return;
+    all.push({ di, h, day: d, ...c });
+  }));
+  return all.sort((a, b) => (b.ready - a.ready) || (b.avg - a.avg));
+}
+
+function icsDate(best) {
+  const now = new Date();
+  const cur = (now.getDay() + 6) % 7;
+  const delta = (DAYS.indexOf(best.day) - cur + 7) % 7 || 7;
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + delta, best.h, 0, 0);
+  const p = n => String(n).padStart(2, '0');
+  return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + 'T' + p(d.getHours()) + '0000';
+}
+
+function setState(patch) {
+  Object.assign(state, patch);
+  render();
+}
+
+function render() {
+  $('subtitle').textContent = `${STATIONS.length} stations · last ${recordCount} readings`;
+
+  const rk = ranked();
+  const best = state.picked
+    ? { ...cellAt(state.picked.di, state.picked.h), di: state.picked.di, h: state.picked.h, day: DAYS[state.picked.di] }
+    : rk[0];
+
+  // grid rows
+  const rowsEl = $('rows');
+  rowsEl.innerHTML = '';
+  DAYS.forEach((d, di) => {
+    const row = document.createElement('div');
+    row.className = 'row';
+
+    const dayEl = document.createElement('div');
+    dayEl.className = 'row-day mono';
+
+    const good = HOURS.map(h => ({ h, c: cellAt(di, h) })).filter(x => !x.c.none && x.c.total > 0 && x.c.ready === x.c.total);
+    dayEl.style.color = good.length ? 'oklch(0.3 0.012 70)' : 'oklch(0.7 0.015 70)';
+    dayEl.textContent = d;
+    row.appendChild(dayEl);
+
+    const cellsWrap = document.createElement('div');
+    cellsWrap.className = 'row-cells';
+    HOURS.forEach(h => {
+      const c = cellAt(di, h);
+      const p = paint(c);
+      const sel = state.picked && state.picked.di === di && state.picked.h === h;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'cell mono';
+      btn.title = c.none ? `${d} ${hh(h)} — no readings` : `${d} ${hh(h)} — ${c.ready}/${c.total} stations ready, avg ${c.avg.toFixed(1)} bikes`;
+      btn.style.background = p.bg;
+      btn.style.color = p.fg;
+      btn.style.border = sel ? '2px solid oklch(0.28 0.02 70)' : p.border;
+      btn.style.opacity = (WINDOWS.find(w => w.key === state.win) || WINDOWS[0]).test(h) ? '1' : '0.35';
+      btn.textContent = c.none ? '' : (c.ready === c.total ? '✓' : String(c.ready));
+      btn.addEventListener('click', () => setState({ picked: { di, h }, copied: false }));
+      cellsWrap.appendChild(btn);
+    });
+    row.appendChild(cellsWrap);
+
+    const bestEl = document.createElement('div');
+    bestEl.className = 'row-best mono';
+    if (good.length) {
+      const hrs = good.map(g => g.h);
+      bestEl.textContent = hrs.length > 1 && hrs[hrs.length - 1] - hrs[0] === hrs.length - 1
+        ? `${hh(hrs[0])}–${hh(hrs[hrs.length - 1])}`
+        : hrs.slice(0, 3).map(hh).join(', ');
+    } else {
+      bestEl.textContent = 'nothing works';
+    }
+    row.appendChild(bestEl);
+
+    rowsEl.appendChild(row);
+  });
+
+  // hour label row
+  let hourRow = $('hour-row');
+  if (!hourRow) {
+    hourRow = document.createElement('div');
+    hourRow.id = 'hour-row';
+    hourRow.className = 'row';
+    hourRow.style.marginTop = '2px';
+    hourRow.innerHTML = '<div></div><div class="hour-labels" id="hour-labels"></div><div></div>';
+    rowsEl.appendChild(hourRow);
   } else {
-    ok = renderTimeline();
+    rowsEl.appendChild(hourRow);
+  }
+  const hourLabels = $('hour-labels');
+  hourLabels.innerHTML = '';
+  HOURS.forEach(h => {
+    const el = document.createElement('div');
+    el.className = 'hour-label mono';
+    el.textContent = hh(h).slice(0, 2);
+    hourLabels.appendChild(el);
+  });
+
+  // hero
+  const worst = rk.length ? rk[rk.length - 1] : null;
+  const planText = best ? `Bike trip: ${FULL[best.day]} ${hh(best.h)} — ${best.ready}/${best.total} stations stocked (avg ${best.avg.toFixed(1)} bikes each). Leave home 10 min earlier.` : '';
+
+  $('hero-kicker').textContent = state.picked ? 'Your pick' : 'Best bet this week';
+  $('hero-day').textContent = best ? FULL[best.day] : '—';
+  $('hero-time').textContent = best ? hh(best.h) : '';
+  $('hero-line').textContent = best
+    ? (best.ready === best.total
+        ? `All ${best.total} stations are usually stocked — about ${best.avg.toFixed(1)} bikes each, enough for ${state.group}. Leave home 10 minutes before.`
+        : `Only ${best.ready} of ${best.total} stations usually have ${minBikes()}+ bikes. Shrink the group or pick another hour.`)
+    : 'Turn on at least one station to see a recommendation.';
+
+  $('copy-btn').textContent = state.copied ? 'Copied ✓' : 'Copy plan for the group chat';
+  $('copy-btn').onclick = () => {
+    try { navigator.clipboard.writeText(planText); } catch (e) {}
+    setState({ copied: true });
+    setTimeout(() => setState({ copied: false }), 1800);
+  };
+
+  const calLink = $('cal-link');
+  if (best) {
+    const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'BEGIN:VEVENT', 'SUMMARY:Bike trip with friends',
+      'DESCRIPTION:' + planText, 'DTSTART;VALUE=DATE-TIME:' + icsDate(best), 'DURATION:PT2H', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+    calLink.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics);
+    calLink.style.pointerEvents = 'auto';
+    calLink.style.opacity = '1';
+  } else {
+    calLink.removeAttribute('href');
+    calLink.style.opacity = '0.5';
+    calLink.style.pointerEvents = 'none';
   }
 
-  $('empty').style.display = ok ? 'none' : 'block';
-  $('empty').textContent = currentView === 'heatmap'
-    ? 'No data for the selected station in this period.'
-    : 'No data yet. The monitoring workflow runs every 30 minutes and will populate the history here.';
-  $('chart').style.display = ok ? 'block' : 'none';
-  $('heat-legend').style.display = (currentView === 'heatmap' && ok) ? 'flex' : 'none';
-  $('insight').style.display = (currentView === 'heatmap' && ok) ? 'block' : 'none';
-}
+  // right now
+  const now = new Date();
+  const nowDi = (now.getDay() + 6) % 7;
+  const nowHi = HOURS.includes(now.getHours()) ? now.getHours() : -1;
+  const nowC = nowHi === -1 ? null : cellAt(nowDi, nowHi);
+  const nowP = nowC ? paint(nowC) : paint({ none: true });
+  const nowOk = nowC && !nowC.none && nowC.total > 0 && nowC.ready === nowC.total;
 
-function setView(view) {
-  currentView = view;
-  $('view-timeline').classList.toggle('active', view === 'timeline');
-  $('view-heatmap').classList.toggle('active', view === 'heatmap');
-  $('heat-controls').style.display = view === 'heatmap' ? 'flex' : 'none';
-  $('station-group').style.display = view === 'timeline' ? 'block' : 'none';
-  $('metric-group').style.display = view === 'timeline' ? 'block' : 'none';
-  $('chart-wrap').style.height = view === 'heatmap' ? '380px' : '420px';
-  updateChart();
-}
+  const nowBadge = $('now-badge');
+  nowBadge.style.background = nowP.bg;
+  nowBadge.style.color = nowP.fg;
+  nowBadge.textContent = nowC && !nowC.none ? `${nowC.ready}/${nowC.total}` : '–';
+  $('now-verdict').textContent = nowHi === -1
+    ? 'Outside riding hours'
+    : (nowC.none ? 'Not enough data' : (nowOk ? 'Go now, it looks good' : (nowC.ready > 0 ? 'Risky — some stations empty' : 'Not now')));
+  $('now-stamp').textContent = `${DAYS[nowDi]} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-$('view-timeline').addEventListener('click', () => setView('timeline'));
-$('view-heatmap').addEventListener('click', () => setView('heatmap'));
-
-document.querySelectorAll('#metric-chips input').forEach(cb => {
-  cb.addEventListener('change', () => {
-    cb.closest('label').classList.toggle('checked', cb.checked);
-    if (currentView === 'timeline') updateChart();
+  const runnerUps = $('runner-ups');
+  runnerUps.innerHTML = '';
+  rk.filter(r => !(best && r.di === best.di && r.h === best.h)).slice(0, 3).forEach(r => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'runner-up';
+    btn.innerHTML = `<span class="when">${r.day} ${hh(r.h)}</span><span class="detail mono">${r.ready}/${r.total} ready · avg ${r.avg.toFixed(1)}</span>`;
+    btn.addEventListener('click', () => setState({ picked: { di: r.di, h: r.h }, copied: false }));
+    runnerUps.appendChild(btn);
   });
-});
-$('heat-station').addEventListener('change', () => { if (currentView === 'heatmap') updateChart(); });
-$('heat-metric').addEventListener('change', () => { if (currentView === 'heatmap') updateChart(); });
-$('range').addEventListener('change', updateChart);
-$('refresh').addEventListener('click', init);
+  if (rk.length === 0) {
+    runnerUps.innerHTML = '<div class="hint">No data yet for this filter.</div>';
+  }
+
+  // group size controls
+  $('group-label').textContent = state.group + (state.group === 1 ? ' friend' : ' friends');
+  $('min-bikes-note').textContent = `Needs ${minBikes()}+ bikes at every station.`;
+  $('dec-btn').onclick = () => setState({ group: Math.max(1, state.group - 1), copied: false });
+  $('inc-btn').onclick = () => setState({ group: Math.min(12, state.group + 1), copied: false });
+
+  // station chips
+  const stationChips = $('station-chips');
+  stationChips.innerHTML = '';
+  STATIONS.forEach(s => {
+    const on = state.active[s.id];
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'chip';
+    btn.style.background = on ? 'var(--accent)' : 'oklch(0.985 0.006 95)';
+    btn.style.color = on ? 'var(--accent-fg)' : 'var(--muted)';
+    btn.style.border = on ? '1px solid oklch(0.5 0.14 152)' : '1px solid oklch(0.88 0.012 90)';
+    btn.textContent = `${s.id} · ${s.name}`;
+    btn.addEventListener('click', () => {
+      state.active[s.id] = !state.active[s.id];
+      setState({ picked: null, copied: false });
+    });
+    stationChips.appendChild(btn);
+  });
+
+  // window chips
+  const windowChips = $('window-chips');
+  windowChips.innerHTML = '';
+  WINDOWS.forEach(w => {
+    const on = state.win === w.key;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'chip';
+    btn.style.background = on ? 'oklch(0.28 0.02 70)' : 'oklch(0.985 0.006 95)';
+    btn.style.color = on ? 'oklch(0.98 0.006 95)' : 'var(--muted)';
+    btn.style.border = on ? '1px solid oklch(0.28 0.02 70)' : '1px solid oklch(0.88 0.012 90)';
+    btn.textContent = w.label;
+    btn.addEventListener('click', () => setState({ win: w.key, picked: null, copied: false }));
+    windowChips.appendChild(btn);
+  });
+
+  $('worst-line').textContent = worst ? `Worst bet: ${worst.day} ${hh(worst.h)} (${worst.ready}/${worst.total} ready)` : 'Worst bet: —';
+}
 
 async function init() {
   try {
     await loadData();
-    renderStations();
-    setView(currentView);
+    render();
   } catch (err) {
-    $('empty').style.display = 'block';
-    $('empty').textContent = 'Could not load station_history.json: ' + err.message;
-    $('chart').style.display = 'none';
-    $('status').textContent = '';
+    document.querySelector('.wrap').innerHTML =
+      `<div class="card" style="padding:24px;color:var(--muted)">Could not load station_history.json: ${err.message}</div>`;
   }
 }
 
